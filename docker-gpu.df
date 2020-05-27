@@ -1,33 +1,32 @@
-FROM nvidia/cuda:8.0-cudnn5-devel
+FROM nvidia/cuda:10.2-cudnn7-devel
 
-# Install dependencies
-RUN apt-get -qq update           &&  \
-    apt-get -qq install --assume-yes \
-        "build-essential"            \
-        "git"                        \
-        "wget"                       \
-        "pkg-config"              && \
-    rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update && apt-get install -y \
+    python3-opencv python3-pip ca-certificates python3-dev git wget sudo && \
+  rm -rf /var/lib/apt/lists/*
 
-# Miniconda.
+# # Miniconda.
 RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh
+# RUN pip3 install numpy scipy pip pillow
+COPY "requirements.txt" .
+RUN pip3 install -q -r "requirements.txt"
 
 # Install requirements before copying project files
 WORKDIR /ne
 COPY requirements.txt .
-RUN /opt/conda/bin/conda install -q -y conda numpy scipy pip pillow
-RUN /opt/conda/bin/python3.5 -m pip install -q -r "requirements.txt"
+RUN /opt/conda/bin/conda install -q -y conda numpy scipy==1.1.0 pip pillow pygpu theano
+RUN /opt/conda/bin/python3 -m pip install -q -r "requirements.txt"
 
-# Copy only required project files
+# # Copy only required project files
 COPY enhance.py .
+COPY ne1x-photo-deblur-0.3.pkl.bz2 .
+COPY ne1x-photo-repair-0.3.pkl.bz2 .
+COPY ne2x-photo-default-0.3.pkl.bz2 .
+COPY ne4x-photo-default-0.3.pkl.bz2 .
 
-# Get a pre-trained neural networks, non-commercial & attribution.
-RUN wget -q "https://github.com/alexjc/neural-enhance/releases/download/v0.3/ne1x-photo-deblur-0.3.pkl.bz2"
-RUN wget -q "https://github.com/alexjc/neural-enhance/releases/download/v0.3/ne1x-photo-repair-0.3.pkl.bz2"
-RUN wget -q "https://github.com/alexjc/neural-enhance/releases/download/v0.3/ne2x-photo-default-0.3.pkl.bz2"
-RUN wget -q "https://github.com/alexjc/neural-enhance/releases/download/v0.3/ne4x-photo-default-0.3.pkl.bz2"
-
-# Set an entrypoint to the main enhance.py script
-ENTRYPOINT ["/opt/conda/bin/python3.5", "enhance.py", "--device=gpu"]
+# # Set an entrypoint to the main enhance.py script
+# ENTRYPOINT ["python3", "enhance.py", "--device=gpu"]
+ENV PATH=/opt/conda/bin:${PATH}
+ENTRYPOINT "/bin/bash"
